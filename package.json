@@ -1,0 +1,24 @@
+{
+  "name": "langchain-learning",
+  "version": "1.0.0",
+  "description": "LangChain.js 学习项目 - 从基础到 RAG",
+  "scripts": {
+    "01:basic": "tsx src/01_basic_call.ts",
+    "02:prompt": "tsx src/02_prompt_template.ts",
+    "03:structured": "tsx src/03_structured_output.ts",
+    "04:rag": "tsx src/04_rag_qa.ts"
+  },
+  "dependencies": {
+    "@langchain/community": "^0.3.0",
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.3.0",
+    "dotenv": "^16.4.0",
+    "langchain": "^0.3.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
