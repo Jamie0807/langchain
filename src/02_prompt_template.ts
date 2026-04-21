@@ -16,28 +16,40 @@ async function main() {
   // -------- 基础 Prompt 模板 --------
   console.log("=== 基础 Prompt 模板 ===");
 
+  // ChatPromptTemplate：创建“带变量占位符”的聊天提示词模板
+  // 这里的 {language}、{text} 会在 invoke({ ... }) 时被替换为真实值
   const translatePrompt = ChatPromptTemplate.fromMessages([
     ["system", "你是一个专业翻译，将用户输入翻译成{language}，只输出翻译结果"],
     ["human", "{text}"],
   ]);
 
   // LCEL 管道：prompt → model → 解析器
+  // StringOutputParser：把模型返回的 AIMessage 解析成纯字符串（等价于取 .content）
   const translateChain = translatePrompt.pipe(model).pipe(new StringOutputParser());
 
-  const r1 = await translateChain.invoke({ language: "英文", text: "今天天气真不错" });
+  const r1 = await translateChain.invoke({ 
+    language: "英文",
+    text: "今天天气真不错"
+});
   console.log("中→英:", r1);
 
-  const r2 = await translateChain.invoke({ language: "日文", text: "我喜欢编程" });
+  const r2 = await translateChain.invoke({ 
+    language: "日文", 
+    text: "我喜欢编程" 
+  });
   console.log("中→日:", r2);
 
   // -------- 多轮对话模板 --------
   console.log("\n=== 带历史记录的对话 ===");
 
+  // ChatPromptTemplate 也适合做可复用“角色化”模板：
+  // 通过 {role}、{style}、{question} 组合出不同场景的提示词
   const chatPrompt = ChatPromptTemplate.fromMessages([
     ["system", "你是一个 {role}，风格：{style}"],
     ["human", "{question}"],
   ]);
 
+  // 这里同样使用 StringOutputParser，保证 chatChain.invoke() 直接得到 string
   const chatChain = chatPrompt.pipe(model).pipe(new StringOutputParser());
 
   const answer = await chatChain.invoke({

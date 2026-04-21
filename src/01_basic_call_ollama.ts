@@ -1,17 +1,23 @@
 /**
- * 示例 01 - 最基础的模型调用
+ * 示例 01 - 最基础的模型调用（Ollama 本地版）
  * 学习目标：理解如何初始化模型、发送 prompt、获取响应
- * 运行：npm run 01:basic
+ * 特点：完全本地运行，无需 API Key，无需网络
+ *
+ * 前提：启动 Ollama 服务，并已下载模型
+ *   ollama pull qwen3:0.6b
+ *
+ * 运行：npm run 01:ollama
  */
-import "dotenv/config";
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOllama } from "@langchain/ollama";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 async function main() {
-  // 1. 初始化模型
-  const model = new ChatOpenAI({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    temperature: 0.7, // 0 = 确定性，1 = 更有创意
+  // 初始化本地 Ollama 模型（和 ChatOpenAI 用法完全一样，只是换了类名）
+  const model = new ChatOllama({
+    model: "qwen3:0.6b",              // 本地已下载的模型名
+    baseUrl: "http://localhost:11434", // Ollama 默认端口
+    temperature: 0.7,
+    think: false,                      // 关闭 qwen3 思维链，去掉 <think> 输出
   });
 
   console.log("=== 方式1：直接传字符串 ===");
@@ -34,16 +40,9 @@ async function main() {
 
   console.log("\n=== 方式3：流式输出（Streaming）===");
   // stream 是 invoke 的流式版本：模型每生成一个 token 就立即返回，不用等全部生成完
-  // model.stream() 返回一个异步流对象，模型每生成几个字就推送一个 chunk
   const stream = await model.stream("写一首关于代码的五言绝句");
-  
-  // process.stdout.write 直接往终端写字，和 console.log 的区别是：不自动换行
-  // 这里先打印"回答："前缀，后续内容会紧跟在后面
   process.stdout.write("回答：");
-
-  // for await...of 循环：每次从流里取一个 chunk（模型吐出的一小段文字）
   for await (const chunk of stream) {
-    // 立即打印这段文字，不换行，形成"逐字出现"的打字机效果
     process.stdout.write(chunk.content as string);
   }
   console.log("\n");

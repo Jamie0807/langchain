@@ -4,9 +4,11 @@
   "description": "LangChain.js 学习项目 - 从基础到 RAG",
   "scripts": {
     "01:basic": "tsx src/01_basic_call.ts",
+    "01:ollama": "tsx src/01_basic_call_ollama.ts",
     "02:prompt": "tsx src/02_prompt_template.ts",
     "03:structured": "tsx src/03_structured_output.ts",
-    "04:rag": "tsx src/04_rag_qa.ts"
+    "04:rag": "tsx src/04_rag_qa.ts",
+    "05:ollama": "tsx src/05_ollama.ts"
   },
   "dependencies": {
     "@langchain/community": "^0.3.0",
