@@ -86,6 +86,51 @@ node_modules/.bin/tsx src/04_rag_qa.ts
 
 ---
 
+## LangChain API 总结（按文件）
+
+### 基础调用（`src/01_basic_call.ts` / `src/01_basic_call_ollama.ts`）
+- `ChatOpenAI`
+- `ChatOllama`
+- `SystemMessage`
+- `HumanMessage`
+- `model.invoke()`
+- `model.stream()`
+
+### Prompt 模板 + LCEL（`src/02_prompt_template.ts`）
+- `ChatPromptTemplate.fromMessages()`
+- `StringOutputParser`
+- `runnable.pipe()`
+- `chain.invoke()`
+- `chain.batch()`
+
+### 结构化输出（`src/03_structured_output.ts`）
+- `JsonOutputParser`
+- `ChatPromptTemplate.fromMessages()`
+- `runnable.pipe()`
+- `chain.invoke()`
+
+### RAG（`src/04_rag_qa.ts`）
+- `RecursiveCharacterTextSplitter`
+- `splitter.splitDocuments()`
+- `Document`
+- `Embeddings`（基类）
+- `MemoryVectorStore.fromDocuments()`
+- `vectorStore.asRetriever()`
+- `ChatPromptTemplate.fromMessages()`
+- `createStuffDocumentsChain()`
+- `createRetrievalChain()`
+- `ragChain.invoke()`
+
+### 容易混淆：这些不是 LangChain API
+- `async/await`
+- `for await...of`
+- `Array.map()`
+- `console.log()`
+- `process.stdout.write()`
+- `dotenv/config`
+
+---
+
 ## 学习路径
 
 ```

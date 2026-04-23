@@ -21,11 +21,12 @@ import { createRetrievalChain } from "langchain/chains/retrieval";
  * 思路：把文本映射为固定长度向量（字符级哈希 + 归一化）
  * 注意：这只是教学版 Embedding，语义效果不如专业模型，但足够跑通 RAG 流程。
  */
+// 本地向量化实现：字符级哈希 + L2 归一化
 class LocalHashEmbeddings extends Embeddings {
   constructor(private readonly dimensions = 256) {
     super({});
   }
-
+  // 将文本转换为固定长度的向量
   private embedText(text: string): number[] {
     const vec = new Array(this.dimensions).fill(0);
     const normalized = text.toLowerCase().replace(/\s+/g, " ");
@@ -40,11 +41,11 @@ class LocalHashEmbeddings extends Embeddings {
     const norm = Math.sqrt(vec.reduce((sum, x) => sum + x * x, 0)) || 1;
     return vec.map((x) => x / norm);
   }
-
+  // 把文档列表批量向量化，返回二维数组
   async embedDocuments(documents: string[]): Promise<number[][]> {
     return documents.map((doc) => this.embedText(doc));
   }
-
+  // 把单个查询向量化，返回一维数组
   async embedQuery(document: string): Promise<number[]> {
     return this.embedText(document);
   }
@@ -82,7 +83,7 @@ const DOCUMENTS = [
   相比 LangChain 的 AgentExecutor，LangGraph 更加灵活和可控。
   `,
 ];
-
+// 文档切分、向量化、存储的完整 RAG 流程示例
 async function buildVectorStore() {
   console.log("📄 切分文档...");
   const splitter = new RecursiveCharacterTextSplitter({

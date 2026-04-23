@@ -18,6 +18,7 @@ async function main() {
 
   // ChatPromptTemplate：创建“带变量占位符”的聊天提示词模板
   // 这里的 {language}、{text} 会在 invoke({ ... }) 时被替换为真实值
+  // 可以理解为：先定义固定话术，再在运行时填空（变量注入）
   const translatePrompt = ChatPromptTemplate.fromMessages([
     ["system", "你是一个专业翻译，将用户输入翻译成{language}，只输出翻译结果"],
     ["human", "{text}"],
@@ -63,6 +64,8 @@ async function main() {
   console.log("\n=== 批量调用 ===");
 
   const subjects = ["React", "Vue", "Angular"];
+  // batch() 是 LangChain Runnable 的批量调用 API（不是 JS 语法）
+  // 作用：一次传入多条输入并并发执行，返回结果数组（顺序与输入一致）
   const batchResults = await chatChain.batch(
     subjects.map((s) => ({
       role: "前端工程师",
