@@ -102,6 +102,7 @@ async function buildVectorStore() {
   console.log("🔢 使用本地 Embeddings 向量化并存入内存向量库...");
   const embeddings = new LocalHashEmbeddings(256);
 
+  // MemoryVectorStore 是 LangChain 内置的内存向量库实现，适合测试和小规模数据
   const vectorStore = await MemoryVectorStore.fromDocuments(chunks, embeddings);
   console.log("✅ 向量库构建完成\n");
   return vectorStore;
@@ -114,6 +115,7 @@ async function main() {
   });
 
   const vectorStore = await buildVectorStore();
+  // asRetriever() 方法将向量库包装成一个检索器（Retriever）对象，提供基于向量相似度的检索功能
   const retriever = vectorStore.asRetriever({ k: 2 }); // 每次检索最相关的 2 个片段
 
   // 构建 RAG 提示词
