@@ -9,6 +9,8 @@
 npm install
 ```
 
+> 当前项目已升级到 `LangChain v1`，建议使用 `Node.js 20+`。
+
 **2. 启动 Ollama 并准备模型**
 
 先安装并启动 [Ollama](https://ollama.com)，然后下载一个本地模型：
@@ -51,6 +53,12 @@ npm run 02:prompt
 npm run 03:structured
 npm run 04:rag
 npm run 05:ollama
+npm run 06:tools
+npm run 07:messages
+npm run 08:react-agent
+npm run 09:create-agent
+npm run 10:structured-agent
+npm run 11:streaming-agent
 ```
 
 **编译产物**
@@ -117,9 +125,93 @@ node dist/01_basic_call/index.mjs
 
 ---
 
+### 05 - Ollama 本地模型 `05_ollama/index.ts`
+**学习目标**：掌握 Ollama 本地模型的基础调用、流式输出和 LCEL 用法
+
+| 知识点 | 说明 |
+|--------|------|
+| `createOllamaChatModel()` | 统一初始化本地 Ollama 模型 |
+| `getOllamaBaseUrl()` | 读取本地 Ollama 服务地址 |
+| `getOllamaModelName()` | 读取当前使用的模型名 |
+| `sanitizeOllamaOutput()` | 清洗模型输出中的标签或多余内容 |
+
+---
+
+### 06 - 工具调用 `06_tools/index.ts`
+**学习目标**：让模型感知工具定义，并由应用代码手动执行工具
+
+| 知识点 | 说明 |
+|--------|------|
+| `tool()` | 定义带 `zod` schema 的工具 |
+| `model.bindTools()` | 把工具绑定到模型，允许模型选择调用 |
+| `tool_calls` | 读取模型返回的工具调用信息 |
+| `tool.invoke()` | 在应用层真正执行工具逻辑 |
+
+---
+
+### 07 - 消息系统 `07_messages/index.ts`
+**学习目标**：理解 `SystemMessage`、`HumanMessage` 等消息类型，并用消息数组调用模型
+
+| 知识点 | 说明 |
+|--------|------|
+| `SystemMessage` | 定义系统级提示，约束角色和输出风格 |
+| `HumanMessage` | 表示用户真实输入的问题 |
+| `model.invoke(messages)` | 直接传入消息数组调用模型 |
+| `sanitizeOllamaOutput()` | 清洗返回内容，方便终端输出 |
+
+---
+
+### 08 - ReAct 智能体 `08_react_agent/index.ts`
+**学习目标**：理解经典 ReAct 提示模板如何驱动 Agent 循环，并通过工具逐步推理得到答案
+
+| 知识点 | 说明 |
+|--------|------|
+| `createReactAgent()` | 创建经典 ReAct Agent |
+| `AgentExecutor` | 负责执行 Agent 与工具循环 |
+| `PromptTemplate` | 手动定义 ReAct 提示模板 |
+| `@langchain/classic` | 在 LangChain v1 中承载旧版 Agent API |
+
+---
+
+### 09 - createAgent `09_create_agent/index.ts`
+**学习目标**：使用 LangChain v1 的 `createAgent()` 快速创建生产可用的 Agent
+
+| 知识点 | 说明 |
+|--------|------|
+| `createAgent()` | LangChain v1 推荐的 Agent 创建方式 |
+| `tool()` | 从根模块定义工具，直接交给 Agent 使用 |
+| `systemPrompt` | 用系统提示约束 Agent 的行为 |
+| `messages` | 用标准消息数组调用 Agent |
+
+---
+
+### 10 - 结构化响应 Agent `10_structured_response_agent/index.ts`
+**学习目标**：使用 `createAgent()` 的 `responseFormat` 返回结构化数据，并读取 `structuredResponse`
+
+| 知识点 | 说明 |
+|--------|------|
+| `responseFormat` | 指定 Agent 最终输出的结构化 schema |
+| `toolStrategy()` | 显式指定用工具调用策略返回结构化结果 |
+| `structuredResponse` | 从 Agent 最终结果中读取结构化对象 |
+| `z.object()` | 定义结构化输出字段与类型约束 |
+
+---
+
+### 11 - 流式结构化响应 Agent `11_streaming_response_agent/index.ts`
+**学习目标**：使用 `agent.stream()` 流式消费消息，并在结束时得到结构化结果
+
+| 知识点 | 说明 |
+|--------|------|
+| `agent.stream()` | 以流式方式执行 Agent |
+| `streamMode: "values"` | 按状态快照持续返回执行过程 |
+| `for await...of` | 逐步消费流中的每个 chunk |
+| `structuredResponse` | 在流结束后提取最终结构化结果 |
+
+---
+
 ## LangChain API 总结（按文件）
 
-### 基础调用（`src/01_basic_call/index.ts` / `src/01_basic_call_ollama/index.ts`）
+### 基础调用（`src/01_basic_call/index.ts`）
 - `ChatOllama`
 - `SystemMessage`
 - `HumanMessage`
@@ -152,6 +244,54 @@ node dist/01_basic_call/index.mjs
 - `createRetrievalChain()`
 - `ragChain.invoke()`
 
+### Ollama 本地模型（`src/05_ollama/index.ts`）
+- `createOllamaChatModel()`
+- `getOllamaBaseUrl()`
+- `getOllamaModelName()`
+- `sanitizeOllamaOutput()`
+- `StringOutputParser`
+
+### 工具调用（`src/06_tools/index.ts`）
+- `tool()`
+- `z.object()`
+- `model.bindTools()`
+- `tool.invoke()`
+- `AIMessage.tool_calls`
+
+### 消息系统（`src/07_messages/index.ts`）
+- `SystemMessage`
+- `HumanMessage`
+- `model.invoke(messages)`
+- `AIMessage`
+
+### 经典 ReAct Agent（`src/08_react_agent/index.ts`）
+- `createReactAgent()`
+- `AgentExecutor`
+- `PromptTemplate`
+- `tool()`
+- `@langchain/classic/agents`
+
+### createAgent（`src/09_create_agent/index.ts`）
+- `createAgent()`
+- `tool()`
+- `ChatOllama`
+- `systemPrompt`
+- `messages`
+
+### 结构化响应 Agent（`src/10_structured_response_agent/index.ts`）
+- `createAgent()`
+- `responseFormat`
+- `toolStrategy()`
+- `structuredResponse`
+- `z.object()`
+
+### 流式结构化响应 Agent（`src/11_streaming_response_agent/index.ts`）
+- `agent.stream()`
+- `streamMode: "values"`
+- `for await...of`
+- `AIMessage`
+- `structuredResponse`
+
 ### 容易混淆：这些不是 LangChain API
 - `async/await`
 - `for await...of`
@@ -165,9 +305,9 @@ node dist/01_basic_call/index.mjs
 ## 学习路径
 
 ```
-01 基础调用  →  02 Prompt 模板  →  03 结构化输出  →  04 RAG
-     ↓                ↓                  ↓               ↓
-  理解模型        LCEL 管道语法        JSON 解析      检索增强生成
+01 基础调用  →  02 Prompt 模板  →  03 结构化输出  →  04 RAG  →  05 Ollama  →  06 工具调用  →  07 消息系统  →  08 ReAct  →  09 createAgent  →  10 结构化响应 Agent  →  11 流式结构化响应
+     ↓                ↓                  ↓               ↓            ↓             ↓               ↓               ↓             ↓                    ↓                         ↓
+ 理解模型        LCEL 管道语法      Schema 约束输出   检索增强生成   本地模型封装   Tool Calling     消息抽象        经典 Agent     v1 Agent             最终结构化结果               流式状态消费
 ```
 
 ## 进阶方向
