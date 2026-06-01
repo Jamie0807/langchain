@@ -9,6 +9,9 @@
     "openrouter",
     "langgraph",
     "tsx",
-    "stategraph"
+    "stategraph",
+    "pgvector",
+    "mxbai",
+    "rerank"
   ]
 }

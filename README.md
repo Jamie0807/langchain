@@ -1,6 +1,11 @@
-# LangChain.js 入门学习项目
+# LangChain.js / LangGraph.js
 
-从零开始学习 LangChain.js 的本地 Ollama 示例，覆盖基础调用、结构化输出、工具调用、Agent、LangGraph 状态图与并行工作流。
+从零开始学习 `LangChain.js` 的本地 Ollama 示例，内容既覆盖 `LangChain` 基础能力，也覆盖基于它继续向上搭建的 `Agent / LangGraph` 与 `RAG` 实践。
+
+本仓库包含两条学习路线：
+
+- `Agent / LangGraph` 主线：覆盖基础调用、结构化输出、工具调用、Agent、LangGraph 状态图，以及并行、子图与中断恢复工作流
+- `RAG` 专项主线：覆盖从 `04_rag_qa` 的最小闭环入门，到 `18-23` 的 CSV 加载、文本切分、Embedding、向量检索、`PGVector` 持久化和完整 RAG 问答落地
 
 ## 环境准备
 
@@ -62,6 +67,15 @@ npm run 11:streaming-agent
 npm run 12:langgraph-entrypoint
 npm run 13:stategraph
 npm run 14:parallel-stategraph
+npm run 15:loop-agent
+npm run 16:subgraph-agent
+npm run 17:interrupt-checkpoint
+npm run 18:csv-loader
+npm run 19:text-splitter
+npm run 20:embedding
+npm run 21:memory-store
+npm run 22:pgvector-store
+npm run 23:full-rag
 ```
 
 **编译产物**
@@ -264,6 +278,13 @@ node dist/01_basic_call/index.mjs
 
 - `index.ts`：定义状态、节点、条件边和最终编译后的 `StateGraph`
 
+**概念说明**
+
+- 状态图是一种用于描述复杂流程的图，每个节点表示一个状态，每条边表示状态之间的转换
+- 节点是状态图的基本单位，状态图的执行流程就是从一个节点流转到另一个节点
+- 边是状态图的连接线，用于描述状态之间如何衔接
+- 条件边会根据当前状态判断下一步应该走哪条路径
+
 **状态定义说明**
 
 - `topic / joke / improvedJoke / finalJoke`：基础字段，保存当前阶段结果
@@ -317,6 +338,321 @@ START
 branches: ["callLlm1", "callLlm2", "callLlm3", "aggregator"]
 llmCalls: 3
 ```
+
+---
+
+### 15 - Loop Agent `15_loop_agent/index.ts`
+**学习目标**：使用 `StateGraph`、条件边和循环边实现带循环的 Agent，理解 `modelNode -> shouldContinue -> fetchTool -> modelNode` 的执行方式
+
+| 知识点 | 说明 |
+|--------|------|
+| `StateGraph` | 用状态驱动方式组织循环型 Agent 工作流 |
+| `tool()` | 定义 `fetch` 工具，供工具节点执行 |
+| `addConditionalEdges()` | 根据 `shouldContinue()` 的结果决定继续循环还是结束 |
+| `InMemoryStore` | 为编译后的图提供内存存储能力 |
+| `START / END` | 明确循环图的起点与终点 |
+
+**文件结构说明**
+
+- `index.ts`：定义状态、`fetch` 工具、模型节点、工具节点、条件函数和带循环边的 `StateGraph`
+
+**状态定义说明**
+
+- `url`：当前要抓取的目标地址
+- `times`：剩余循环次数，每次工具执行后递减
+- `lastFetchedContent`：保存最近一次工具抓取到的页面内容
+- `currentSummary`：保存模型节点对当前状态的阶段性总结
+- `steps`：数组 reducer，累计记录 `modelNode` 和 `fetchTool` 的执行顺序
+- `modelNotes`：数组 reducer，累计保存每一轮模型节点的输出摘要
+- `fetchCount`：数值 reducer，累计统计工具节点实际执行次数
+
+**运行结果示例**
+
+```txt
+START
+  -> modelNode
+  -> shouldContinue
+     -> continue: fetchTool -> modelNode
+     -> stop: END
+
+steps: ["modelNode", "fetchTool", "modelNode", "fetchTool", "modelNode"]
+fetchCount: 2
+remainingTimes: 0
+```
+
+---
+
+### 16 - Subgraph Agent `16_subgraph_agent/index.ts`
+**学习目标**：使用 `StateGraph` 在主图中嵌套子图，理解“主图调度 + 子图内部循环”的执行方式
+
+| 知识点 | 说明 |
+|--------|------|
+| `StateGraph` | 同时定义主图和子图的工作流结构 |
+| `subAgent.invoke()` | 在主图节点中显式调用子图 |
+| `tool()` | 定义 `fetch` 工具，供子图工具节点执行 |
+| `addConditionalEdges()` | 在子图内部根据条件继续循环或结束 |
+| `InMemoryStore` | 为主图和子图编译结果提供内存存储能力 |
+
+**文件结构说明**
+
+- `index.ts`：定义共享状态、`fetch` 工具、子图节点、主图节点，以及“主图调用子图”的 `StateGraph`
+
+**状态定义说明**
+
+- `url`：当前要抓取的目标地址
+- `times`：剩余抓取次数，由子图内部循环逐步递减
+- `lastFetchedContent`：保存子图最近一次工具抓取内容
+- `currentSummary`：保存子图模型节点的阶段性总结
+- `mainSummary`：保存主图模型节点的调度说明
+- `steps`：数组 reducer，累计记录主图节点、子图节点和工具节点的执行顺序
+- `modelNotes`：数组 reducer，累计保存主图和子图模型节点的输出摘要
+- `fetchCount`：数值 reducer，累计统计子图工具节点执行次数
+
+**运行结果示例**
+
+```txt
+Main Graph:
+START -> modelNode -> subAgent -> END
+
+Sub Graph:
+START -> subModelNode
+       -> shouldContinue
+          -> continue: fetchTool -> subModelNode
+          -> stop: END
+
+steps: ["mainModelNode", "subAgent", "subModelNode", "fetchTool", "subModelNode", "fetchTool", "subModelNode"]
+fetchCount: 2
+remainingTimes: 0
+```
+
+---
+
+### 17 - Interrupt And Checkpoint `17_interrupt_checkpoint/index.ts`
+**学习目标**：使用 `interrupt()`、`MemorySaver` 和 `thread_id` 实现中断、检查点保存与恢复执行
+
+| 知识点 | 说明 |
+|--------|------|
+| `interrupt()` | 在节点中主动暂停执行并等待恢复输入 |
+| `MemorySaver` | 保存当前线程的检查点，支持后续恢复 |
+| `Command({ resume })` | 恢复被中断的线程，继续执行后续节点 |
+| `configurable.thread_id` | 标识同一条执行线程，用于读取和恢复检查点 |
+| `getState()` | 获取当前检查点快照，查看 `next`、任务和状态值 |
+
+**文件结构说明**
+
+- `index.ts`：定义状态、`fetch` 工具、模型节点、中断节点、工具节点，以及“中断后恢复”的完整示例
+
+**状态定义说明**
+
+- `url`：当前要抓取的目标地址
+- `times`：剩余抓取次数，在工具执行后递减
+- `approved`：恢复执行时通过 `Command({ resume })` 传回的审批结果
+- `modelSummary`：模型节点生成的中断前阶段总结
+- `fetchedContent`：工具节点抓取到的页面内容
+- `steps`：数组 reducer，累计记录 `modelNode`、`interruptNode`、`fetchTool` 的执行轨迹
+
+**运行结果示例**
+
+```txt
+第一次执行:
+START -> modelNode -> interruptNode
+interrupt() -> 保存检查点 -> 暂停执行
+
+第二次执行:
+使用相同 thread_id + Command({ resume: "批准继续抓取" })
+interruptNode -> fetchTool -> END
+
+steps: ["modelNode", "interruptNode", "fetchTool"]
+times: 0
+```
+
+---
+
+### 18 - 23 RAG 学习链路概览
+这一段示例是一条从“原始数据”到“可问答系统”的完整 RAG 学习链路：
+
+```txt
+18 CSV 加载
+  -> 19 文本切分
+  -> 20 Embedding 向量化
+  -> 21 MemoryVectorStore 内存检索
+  -> 22 PGVectorStore 持久化检索
+  -> 23 Full RAG 检索增强问答
+```
+
+数据源统一使用 `rag-document/student.csv`，内容是学生基础信息，适合用来观察每一步的输入输出变化。
+
+### `04_rag_qa` 和 `18-23` 的关系：RAG 从入门到完整落地
+
+`04_rag_qa` 可以理解为“RAG 最小可运行版本”，它把文档切分、向量化、向量存储、检索、回答这些步骤一次性串起来，适合第一次建立对 RAG 的整体认知。
+
+`18-23` 则是在这个基础上，把同一条链路拆成更细的学习阶段，帮助你看清楚每一步到底输入了什么、输出了什么、为什么这样设计。
+
+| 对比项 | `04_rag_qa` | `18-23` |
+|--------|-------------|----------|
+| 学习定位 | 快速入门 RAG 全流程 | 拆解 RAG 并逐步落地 |
+| 组织方式 | 一个示例直接跑通 | 六个示例分步骤展开 |
+| 数据入口 | 直接围绕文档切分和检索链展开 | 从 `CSVLoader` 读取原始数据开始 |
+| Embedding | 使用 `LocalHashEmbeddings` 做教学演示 | 使用 `OllamaEmbeddings` 接近真实环境 |
+| 向量存储 | `MemoryVectorStore` | 先 `MemoryVectorStore`，再过渡到 `PGVectorStore` |
+| 检索结果处理 | 直接交给检索链回答 | 先召回，再做简单词法补强，再交给 LLM |
+| 工程视角 | 先理解“RAG 是什么” | 进一步理解“RAG 怎么拆、怎么扩展、怎么上线” |
+
+**推荐学习顺序**
+
+1. 先看 `04_rag_qa`，建立 RAG 的最小心智模型
+2. 再看 `18` 到 `22`，把加载、切分、向量化、检索、持久化逐步拆开理解
+3. 最后看 `23_full_rag`，理解如何把这些步骤重新组装成可追溯的完整问答流程
+
+**可以把它们理解成下面这层关系**
+
+```txt
+04_rag_qa
+  = RAG 最小闭环示例
+
+18_csv_loader
+  -> 19_text_splitter
+  -> 20_embedding
+  -> 21_memory_store
+  -> 22_pgvector_store
+  -> 23_full_rag
+  = RAG 拆解学习版 + 更接近真实落地版
+```
+
+如果你只想快速知道 RAG 是怎么工作的，看 `04` 就够了；如果你想把 RAG 真正做成一个能扩展、能替换组件、能接数据库的工程化流程，就继续顺着 `18-23` 往下学。
+
+---
+
+### 18 - CSV Loader `18_csv_loader/index.ts`
+**学习目标**：使用 `CSVLoader` 把 CSV 文件转换成 LangChain `Document` 列表，作为后续 RAG 流程的输入
+
+| 知识点 | 说明 |
+|--------|------|
+| `CSVLoader` | 读取本地 CSV 文件，并按行生成 `Document` |
+| `loader.load()` | 执行加载，返回文档数组 |
+| `Document.pageContent` | 保存当前行的文本内容 |
+| `Document.metadata` | 保存来源路径、行号等元信息 |
+| `path.resolve()` | 生成跨平台可用的绝对路径 |
+
+**这一节产出什么**
+
+- 看到 CSV 每一行如何被转成一个 `Document`
+- 理解后续切分、向量化、检索都不是直接操作原始文件，而是操作 `Document[]`
+
+---
+
+### 19 - Text Splitter `19_text_splitter/index.ts`
+**学习目标**：使用 `RecursiveCharacterTextSplitter` 把加载后的文档切成更适合 Embedding 和检索的小块
+
+| 知识点 | 说明 |
+|--------|------|
+| `RecursiveCharacterTextSplitter` | 按字符长度递归切分文本 |
+| `chunkSize` | 每个 chunk 的目标大小 |
+| `chunkOverlap` | 相邻 chunk 的重叠长度，降低语义断裂 |
+| `splitDocuments()` | 对 `Document[]` 执行批量切分 |
+| `chunk.metadata` | 保留原始来源信息，便于后续回溯来源 |
+
+**为什么要切分**
+
+- 原始文档过长时，不适合直接向量化和检索
+- chunk 太大容易引入无关信息，chunk 太小又可能损失语义
+- `19` 这一节就是在观察 RAG 中最基础的分块策略
+
+---
+
+### 20 - Embedding `20_embedding/index.ts`
+**学习目标**：使用 `OllamaEmbeddings` 把文本 chunk 和用户查询转换成向量
+
+| 知识点 | 说明 |
+|--------|------|
+| `OllamaEmbeddings` | 调用本地 Ollama Embedding 模型生成向量 |
+| `embedDocuments()` | 批量把文档内容转成向量 |
+| `embedQuery()` | 把查询问题转成向量 |
+| `mxbai-embed-large:335m` | 当前示例使用的本地 Embedding 模型 |
+| `vector.length` | 向量维度，后续建库时需要一致 |
+
+**这一节核心理解**
+
+- 文档和查询必须落到同一向量空间，才能做相似度检索
+- `20` 这一节把“文本”正式变成了“可计算距离的数值表示”
+
+---
+
+### 21 - Memory Vector Store `21_memory_store/index.ts`
+**学习目标**：使用 `MemoryVectorStore` 在内存里保存向量，并完成最基础的相似度检索
+
+| 知识点 | 说明 |
+|--------|------|
+| `MemoryVectorStore.fromDocuments()` | 直接从文档和 embeddings 构建内存向量库 |
+| `similaritySearchWithScore()` | 传入文本查询，返回最相似文档和分数 |
+| `similaritySearchVectorWithScore()` | 传入向量查询，返回最相似文档和分数 |
+| `memoryVectors.length` | 查看当前内存中保存了多少条向量 |
+| `Document + score` | 检索结果不只是文本，还带相似度信息 |
+
+**这一节适合做什么**
+
+- 本地验证 RAG 检索效果
+- 不依赖数据库，先把“切分 + 向量化 + 检索”最小闭环跑通
+
+---
+
+### 22 - PGVector Store `22_pgvector_store/index.ts`
+**学习目标**：把向量从内存迁移到 PostgreSQL + `pgvector`，实现可持久化的向量检索
+
+| 知识点 | 说明 |
+|--------|------|
+| `PGVectorStore.initialize()` | 初始化 pgvector 向量表和检索能力 |
+| `postgresConnectionOptions` | 配置 PostgreSQL 连接参数 |
+| `tableName` | 指定向量表名，避免和其他项目冲突 |
+| `distanceStrategy: "cosine"` | 使用余弦距离做相似度检索 |
+| `dimensions: 1024` | 明确向量维度，需与 Embedding 模型输出一致 |
+| `addDocuments()` | 把文档 chunk 写入数据库向量表 |
+| `vectorStore.end()` | 关闭数据库连接，避免进程挂住 |
+
+**运行前提**
+
+- 已启动 PostgreSQL
+- 已在目标数据库执行 `CREATE EXTENSION IF NOT EXISTS vector;`
+- 已正确配置 `PGVECTOR_HOST`、`PGVECTOR_PORT`、`PGVECTOR_USER`、`PGVECTOR_PASSWORD`、`PGVECTOR_DATABASE`
+
+**这一节的意义**
+
+- `21` 解决“能检索”，`22` 解决“能持久化、可扩展”
+- 是从教学 demo 迈向真实生产 RAG 的关键一步
+
+---
+
+### 23 - Full RAG `23_full_rag/index.ts`
+**学习目标**：把 CSV 加载、切分、Embedding、向量存储、检索、LLM 回答完整串起来，形成一个最小可用 RAG 问答流程
+
+| 知识点 | 说明 |
+|--------|------|
+| `loadDocuments()` | 加载原始 CSV 文档 |
+| `splitDocuments()` | 对文档做分块 |
+| `buildVectorStore()` | 构建内存向量库 |
+| `similaritySearchWithScore()` | 先召回候选 chunk |
+| `lexicalScore()` | 在向量召回后做一层词法排序补强 |
+| `formatContext()` | 把检索结果拼成可注入 prompt 的上下文 |
+| `llm.invoke()` | 让模型基于检索上下文生成答案 |
+| `formatSources()` | 输出来源片段，便于核对答案是否可追溯 |
+
+**完整执行链路**
+
+```txt
+CSVLoader
+  -> splitDocuments
+  -> OllamaEmbeddings
+  -> MemoryVectorStore
+  -> similaritySearchWithScore
+  -> lexical rerank
+  -> LLM answer
+  -> sources
+```
+
+**这一节的重点**
+
+- 不只是“查到内容”，而是把“召回结果 + 提示词约束 + 答案生成 + 来源展示”一起串起来
+- 是 `18` 到 `22` 的综合落地版本
 
 ---
 
@@ -431,6 +767,75 @@ llmCalls: 3
 - `default: () => []`
 - `reducer: (a, b) => ...`
 
+### Loop Agent（`src/15_loop_agent/index.ts`）
+- `StateGraph`
+- `tool()`
+- `addConditionalEdges()`
+- `InMemoryStore`
+- `START`
+- `END`
+- `reducer: (a, b) => ...`
+
+### Subgraph Agent（`src/16_subgraph_agent/index.ts`）
+- `StateGraph`
+- `subAgent.invoke()`
+- `tool()`
+- `addConditionalEdges()`
+- `InMemoryStore`
+- `START`
+- `END`
+
+### Interrupt And Checkpoint（`src/17_interrupt_checkpoint/index.ts`）
+- `interrupt()`
+- `MemorySaver`
+- `Command({ resume })`
+- `getState()`
+- `configurable.thread_id`
+- `StateGraph`
+- `InMemoryStore`
+
+### CSV Loader（`src/18_csv_loader/index.ts`）
+- `CSVLoader`
+- `loader.load()`
+- `Document.pageContent`
+- `Document.metadata`
+
+### Text Splitter（`src/19_text_splitter/index.ts`）
+- `RecursiveCharacterTextSplitter`
+- `splitter.splitDocuments()`
+- `chunkSize`
+- `chunkOverlap`
+- `Document`
+
+### Embedding（`src/20_embedding/index.ts`）
+- `OllamaEmbeddings`
+- `embedDocuments()`
+- `embedQuery()`
+- `getOllamaBaseUrl()`
+
+### Memory Vector Store（`src/21_memory_store/index.ts`）
+- `MemoryVectorStore.fromDocuments()`
+- `similaritySearchWithScore()`
+- `similaritySearchVectorWithScore()`
+- `memoryVectors`
+
+### PGVector Store（`src/22_pgvector_store/index.ts`）
+- `PGVectorStore.initialize()`
+- `addDocuments()`
+- `similaritySearchWithScore()`
+- `similaritySearchVectorWithScore()`
+- `distanceStrategy`
+- `dimensions`
+
+### Full RAG（`src/23_full_rag/index.ts`）
+- `CSVLoader`
+- `RecursiveCharacterTextSplitter`
+- `OllamaEmbeddings`
+- `MemoryVectorStore.fromDocuments()`
+- `similaritySearchWithScore()`
+- `llm.invoke()`
+- `Document.metadata`
+
 ### 容易混淆：这些不是 LangChain API
 - `async/await`
 - `for await...of`
@@ -443,22 +848,49 @@ llmCalls: 3
 
 ## 学习路径
 
-```
-01 基础调用  →  02 Prompt 模板  →  03 结构化输出  →  04 RAG  →  05 Ollama  →  06 工具调用  →  07 消息系统  →  08 ReAct  →  09 createAgent  →  10 结构化响应 Agent  →  11 流式结构化响应  →  12 LangGraph Entrypoint  →  13 StateGraph 状态图  →  14 Parallel StateGraph
-     ↓                ↓                  ↓               ↓            ↓             ↓               ↓               ↓             ↓                    ↓                         ↓                        ↓                             ↓                           ↓
- 理解模型        LCEL 管道语法      Schema 约束输出   检索增强生成   本地模型封装   Tool Calling     消息抽象        经典 Agent     v1 Agent             最终结构化结果               流式状态消费             Functional API 工作流           状态驱动工作流              并行图编排
+**主线一：01-17 Agent / LangGraph**
+
+```txt
+01 基础调用
+  -> 02 Prompt 模板
+  -> 03 结构化输出
+  -> 05 Ollama
+  -> 06 工具调用
+  -> 07 消息系统
+  -> 08 ReAct
+  -> 09 createAgent
+  -> 10 结构化响应 Agent
+  -> 11 流式结构化响应
+  -> 12 LangGraph Entrypoint
+  -> 13 StateGraph 状态图
+  -> 14 Parallel StateGraph
+  -> 15 Loop Agent
+  -> 16 Subgraph Agent
+  -> 17 Interrupt And Checkpoint
 ```
 
-## 进阶方向
+- 从模型调用、Prompt、结构化输出开始，逐步进入工具调用、Agent 和 LangGraph 编排
+- 这一条线更适合建立 LangChain / LangGraph 的整体能力地图
 
-- **对话记忆（Memory）**：让模型记住多轮对话上下文
-- **Tool 调用 Agent**：让模型能调用外部工具（搜索、计算等）
-- **LangGraph**：用图结构控制复杂多步骤 AI 工作流
-- **真实 RAG**：读取本地 PDF/TXT/Markdown 文件
+**主线二：04 + 18-23 RAG 专项**
+
+```txt
+04 RAG 问答
+  -> 18 CSV Loader
+  -> 19 Text Splitter
+  -> 20 Embedding
+  -> 21 Memory Store
+  -> 22 PGVector Store
+  -> 23 Full RAG
+```
+
+- `04` 先帮助你快速理解 RAG 最小闭环：切分、向量化、检索、回答
+- `18-23` 再把这条链路拆开，补齐数据加载、向量持久化和完整问答落地
+
+**怎么学更顺**
+
+- 想先搭整体框架：按主线一学习，再专项补主线二
+- 想专攻 RAG：先看 `04`，再顺着 `18 -> 23` 走完整条 RAG 专项线
+
 
 ---
-
-## 面试资料
-
-- 面试相关内容已拆分到独立文件：[`INTERVIEW.md`](./INTERVIEW.md)
-- 包含内容：高频问答、口语化速答模板

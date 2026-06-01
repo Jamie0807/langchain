@@ -18,21 +18,33 @@
     "12:langgraph-entrypoint": "tsx src/12_langgraph_entrypoint/index.ts",
     "13:stategraph": "tsx src/13_stategraph/index.ts",
     "14:parallel-stategraph": "tsx src/14_parallel_stategraph/index.ts",
+    "15:loop-agent": "tsx src/15_loop_agent/index.ts",
+    "16:subgraph-agent": "tsx src/16_subgraph_agent/index.ts",
+    "17:interrupt-checkpoint": "tsx src/17_interrupt_checkpoint/index.ts",
+    "18:csv-loader": "tsx src/18_csv_loader/index.ts",
+    "19:text-splitter": "tsx src/19_text_splitter/index.ts",
+    "20:embedding": "tsx src/20_embedding/index.ts",
+    "21:memory-store": "tsx src/21_memory_store/index.ts",
+    "22:pgvector-store": "tsx src/22_pgvector_store/index.ts",
+    "23:full-rag": "tsx src/23_full_rag/index.ts",
     "compile": "tsup",
     "compile:watch": "tsup --watch"
   },
   "dependencies": {
-    "@langchain/classic": "^1.0.34",
-    "@langchain/community": "^1.1.29",
+    "@langchain/classic": "^1.0.7",
+    "@langchain/community": "^1.1.1",
     "@langchain/core": "^1.1.8",
+    "@langchain/langgraph": "^1.0.7",
     "@langchain/ollama": "^1.2.7",
+    "d3-dsv": "3.0.1",
     "dotenv": "^16.4.0",
     "langchain": "^1.4.2",
-    "zod": "^3.25.76",
-    "@langchain/langgraph": "^1.0.7"
+    "pg": "^8.21.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
     "tsup": "8.5.1",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3"
