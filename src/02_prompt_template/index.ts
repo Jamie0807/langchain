@@ -4,14 +4,19 @@
  * 运行：npm run 02:prompt
  */
 import "dotenv/config";
-import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
+import {
+  createOllamaChatModel,
+  getOllamaModelName,
+  sanitizeOllamaOutput,
+} from "../lib/ollama";
 
 async function main() {
-  const model = new ChatOpenAI({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  const model = createOllamaChatModel({
+    temperature: 0.7,
   });
+  console.log(`当前模型: ${getOllamaModelName()}`);
 
   // -------- 基础 Prompt 模板 --------
   console.log("=== 基础 Prompt 模板 ===");
@@ -28,17 +33,17 @@ async function main() {
   // StringOutputParser：把模型返回的 AIMessage 解析成纯字符串（等价于取 .content）
   const translateChain = translatePrompt.pipe(model).pipe(new StringOutputParser());
 
-  const r1 = await translateChain.invoke({ 
+  const r1 = await translateChain.invoke({
     language: "英文",
-    text: "今天天气真不错"
-});
-  console.log("中→英:", r1);
-
-  const r2 = await translateChain.invoke({ 
-    language: "日文", 
-    text: "我喜欢编程" 
+    text: "今天天气真不错",
   });
-  console.log("中→日:", r2);
+  console.log("中→英:", sanitizeOllamaOutput(r1));
+
+  const r2 = await translateChain.invoke({
+    language: "日文",
+    text: "我喜欢编程",
+  });
+  console.log("中→日:", sanitizeOllamaOutput(r2));
 
   // -------- 多轮对话模板 --------
   console.log("\n=== 带历史记录的对话 ===");
@@ -58,7 +63,7 @@ async function main() {
     style: "简洁、举例丰富",
     question: "interface 和 type 的核心区别是什么？",
   });
-  console.log(answer);
+  console.log(sanitizeOllamaOutput(answer));
 
   // -------- 批量调用（parallel）--------
   console.log("\n=== 批量调用 ===");
@@ -75,7 +80,7 @@ async function main() {
   );
 
   subjects.forEach((s, i) => {
-    console.log(`${s}: ${batchResults[i]}`);
+    console.log(`${s}: ${sanitizeOllamaOutput(batchResults[i])}`);
   });
 }
 

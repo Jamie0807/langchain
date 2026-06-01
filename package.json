@@ -3,24 +3,28 @@
   "version": "1.0.0",
   "description": "LangChain.js 学习项目 - 从基础到 RAG",
   "scripts": {
-    "01:basic": "tsx src/01_basic_call.ts",
-    "01:ollama": "tsx src/01_basic_call_ollama.ts",
-    "02:prompt": "tsx src/02_prompt_template.ts",
-    "03:structured": "tsx src/03_structured_output.ts",
-    "04:rag": "tsx src/04_rag_qa.ts",
-    "05:ollama": "tsx src/05_ollama.ts"
+    "01:basic": "tsx src/01_basic_call/index.ts",
+    "01:ollama": "tsx src/01_basic_call_ollama/index.ts",
+    "02:prompt": "tsx src/02_prompt_template/index.ts",
+    "03:structured": "tsx src/03_structured_output/index.ts",
+    "04:rag": "tsx src/04_rag_qa/index.ts",
+    "05:ollama": "tsx src/05_ollama/index.ts",
+    "06:tools": "tsx src/06_tools/index.ts",
+    "compile": "tsup",
+    "compile:watch": "tsup --watch"
   },
   "dependencies": {
+    "langchain": "^0.3.0",
+    "@langchain/ollama": "^0.2.4",
     "@langchain/community": "^0.3.0",
     "@langchain/core": "^0.3.0",
-    "@langchain/openai": "^0.3.0",
     "dotenv": "^16.4.0",
-    "langchain": "^0.3.0",
-    "zod": "^3.23.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.9.3",
+    "tsup":"8.5.1"
   }
 }
