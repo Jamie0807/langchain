@@ -1,7 +1,7 @@
 import { ChatOllama } from "@langchain/ollama";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
-const DEFAULT_MODEL = "qwen3:0.6b";
+const DEFAULT_MODEL = "qwen3-vl:2b";
 
 export function getOllamaBaseUrl(): string {
   return process.env.OLLAMA_BASE_URL || DEFAULT_BASE_URL;

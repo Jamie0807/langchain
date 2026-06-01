@@ -59,6 +59,7 @@ npm run 08:react-agent
 npm run 09:create-agent
 npm run 10:structured-agent
 npm run 11:streaming-agent
+npm run 12:langgraph-entrypoint
 ```
 
 **编译产物**
@@ -209,6 +210,32 @@ node dist/01_basic_call/index.mjs
 
 ---
 
+### 12 - LangGraph Entrypoint Agent `12_langgraph_entrypoint/index.ts`
+**学习目标**：使用 LangGraph Functional API 拆分工具定义、模型绑定、模型节点、工具节点，并通过 `entrypoint()` 组装 Agent
+
+| 知识点 | 说明 |
+|--------|------|
+| `entrypoint()` | 定义 LangGraph Functional API 的工作流入口 |
+| `addMessages()` | 把模型消息和工具结果追加回消息历史 |
+| `model.bindTools()` | 将工具绑定到模型，让模型可以发起 `tool_calls` |
+| `judgeIntent()` | 显式判断当前该走工具调用还是直接返回结果 |
+| `executeIntent()` | 根据意图执行具体动作，例如调用工具或结束流程 |
+| `tool()` | 定义带 schema 的工具能力 |
+| `ToolMessage` | 表示工具执行完成后返回给模型的结果消息 |
+
+**目录结构说明**
+
+- `1.tools.ts`：定义工具本身，例如 `add`、`multiply`、`divide`
+- `2.model.ts`：初始化 `ChatOllama`，并通过 `bindTools()` 把工具绑定到模型
+- `3.model-node.ts`：定义模型节点，负责调用 LLM 并生成下一步消息或 `tool_calls`
+- `4.tool-node.ts`：定义工具节点，负责根据 `tool_call` 执行对应工具
+- `5.intent-node.ts`：定义意图判断节点，判断当前是调用工具还是直接响应
+- `6.execute-intent.ts`：定义意图执行节点，按意图执行工具或结束流程
+- `agent.ts`：使用 `entrypoint()` 把模型节点、工具节点、意图节点串起来，形成完整 Agent 循环
+- `index.ts`：运行入口，负责发起一次调用并打印最终消息结果
+
+---
+
 ## LangChain API 总结（按文件）
 
 ### 基础调用（`src/01_basic_call/index.ts`）
@@ -292,6 +319,15 @@ node dist/01_basic_call/index.mjs
 - `AIMessage`
 - `structuredResponse`
 
+### LangGraph Entrypoint Agent（`src/12_langgraph_entrypoint/index.ts`）
+- `entrypoint()`
+- `addMessages()`
+- `judgeIntent()`
+- `executeIntent()`
+- `tool()`
+- `model.bindTools()`
+- `ToolMessage`
+
 ### 容易混淆：这些不是 LangChain API
 - `async/await`
 - `for await...of`
@@ -305,9 +341,9 @@ node dist/01_basic_call/index.mjs
 ## 学习路径
 
 ```
-01 基础调用  →  02 Prompt 模板  →  03 结构化输出  →  04 RAG  →  05 Ollama  →  06 工具调用  →  07 消息系统  →  08 ReAct  →  09 createAgent  →  10 结构化响应 Agent  →  11 流式结构化响应
-     ↓                ↓                  ↓               ↓            ↓             ↓               ↓               ↓             ↓                    ↓                         ↓
- 理解模型        LCEL 管道语法      Schema 约束输出   检索增强生成   本地模型封装   Tool Calling     消息抽象        经典 Agent     v1 Agent             最终结构化结果               流式状态消费
+01 基础调用  →  02 Prompt 模板  →  03 结构化输出  →  04 RAG  →  05 Ollama  →  06 工具调用  →  07 消息系统  →  08 ReAct  →  09 createAgent  →  10 结构化响应 Agent  →  11 流式结构化响应  →  12 LangGraph Entrypoint
+     ↓                ↓                  ↓               ↓            ↓             ↓               ↓               ↓             ↓                    ↓                         ↓                        ↓
+ 理解模型        LCEL 管道语法      Schema 约束输出   检索增强生成   本地模型封装   Tool Calling     消息抽象        经典 Agent     v1 Agent             最终结构化结果               流式状态消费             Functional API 工作流
 ```
 
 ## 进阶方向
