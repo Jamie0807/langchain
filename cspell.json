@@ -8,6 +8,7 @@
     "qwen",
     "openrouter",
     "langgraph",
-    "tsx"
+    "tsx",
+    "stategraph"
   ]
 }

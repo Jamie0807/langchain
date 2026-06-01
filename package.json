@@ -16,6 +16,8 @@
     "10:structured-agent": "tsx src/10_structured_response_agent/index.ts",
     "11:streaming-agent": "tsx src/11_streaming_response_agent/index.ts",
     "12:langgraph-entrypoint": "tsx src/12_langgraph_entrypoint/index.ts",
+    "13:stategraph": "tsx src/13_stategraph/index.ts",
+    "14:parallel-stategraph": "tsx src/14_parallel_stategraph/index.ts",
     "compile": "tsup",
     "compile:watch": "tsup --watch"
   },

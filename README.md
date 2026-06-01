@@ -1,6 +1,6 @@
 # LangChain.js 入门学习项目
 
-从零开始学习 LangChain.js 的本地 Ollama 示例，涵盖核心概念。
+从零开始学习 LangChain.js 的本地 Ollama 示例，覆盖基础调用、结构化输出、工具调用、Agent、LangGraph 状态图与并行工作流。
 
 ## 环境准备
 
@@ -60,6 +60,8 @@ npm run 09:create-agent
 npm run 10:structured-agent
 npm run 11:streaming-agent
 npm run 12:langgraph-entrypoint
+npm run 13:stategraph
+npm run 14:parallel-stategraph
 ```
 
 **编译产物**
@@ -234,6 +236,88 @@ node dist/01_basic_call/index.mjs
 - `agent.ts`：使用 `entrypoint()` 把模型节点、工具节点、意图节点串起来，形成完整 Agent 循环
 - `index.ts`：运行入口，负责发起一次调用并打印最终消息结果
 
+**运行结果示例**
+
+```txt
+用户问题 -> 模型节点 -> 意图判断
+如果有 tool_calls -> 工具节点 -> 回到模型节点
+如果无 tool_calls -> 返回最终 AIMessage
+```
+
+---
+
+### 13 - StateGraph 状态图 `13_stategraph/index.ts`
+**学习目标**：使用 `StateGraph` 和 `Annotation.Root` 定义状态、reducer 和条件边，构建可编排的多步骤工作流
+
+| 知识点 | 说明 |
+|--------|------|
+| `StateGraph` | 用状态驱动的方式组织多节点工作流 |
+| `Annotation.Root` | 定义整个状态对象的结构 |
+| `Annotation<string>` | 为状态字段声明类型 |
+| `default: () => []` | 为 reducer 字段提供默认初始值 |
+| `reducer: (a, b) => ...` | 定义状态更新时的合并策略 |
+| `addConditionalEdges()` | 根据条件函数动态决定后续节点 |
+| `START` | 状态图起点 |
+| `END` | 状态图终点 |
+
+**文件结构说明**
+
+- `index.ts`：定义状态、节点、条件边和最终编译后的 `StateGraph`
+
+**状态定义说明**
+
+- `topic / joke / improvedJoke / finalJoke`：基础字段，保存当前阶段结果
+- `jokeHistory`：数组 reducer，累计保存每个阶段生成的笑话版本
+- `steps`：数组 reducer，累计保存执行过的节点名称
+- `llmCalls`：数值 reducer，累计统计模型调用次数
+
+**运行结果示例**
+
+```txt
+START
+  -> generateJoke
+  -> checkPunchline
+     -> Pass: improveJoke -> polishJoke -> END
+     -> Fail: END
+```
+
+---
+
+### 14 - Parallel StateGraph `14_parallel_stategraph/index.ts`
+**学习目标**：使用 `StateGraph` 实现并行节点执行，理解 `Fan-out / Fan-in`、`aggregator` 以及并行状态聚合方式
+
+| 知识点 | 说明 |
+|--------|------|
+| `Fan-out / Fan-in` | 从 `START` 并行分发到多个节点，再汇总到同一个聚合节点 |
+| `aggregator` | 在所有并行分支完成后统一拼装最终输出 |
+| `branches` reducer | 用数组聚合每个并行节点的执行轨迹 |
+| `llmCalls` reducer | 用数值累加统计并行分支中的模型调用次数 |
+| `START / END` | 明确并行工作流的起点和终点 |
+
+**文件结构说明**
+
+- `index.ts`：定义并行状态、三个并行节点、`aggregator` 聚合节点以及最终编译后的 `StateGraph`
+
+**并行状态聚合说明**
+
+- `topic`：共享输入，作为三个并行节点共同读取的主题
+- `joke / story / poem`：各并行节点分别写入自己的结果字段，互不覆盖
+- `branches`：使用数组 reducer 聚合每个节点返回的节点名，最终可看到完整执行路径
+- `llmCalls`：使用数值 reducer 聚合每个分支的调用次数，最终统计总共调用了几次模型
+- `combinedOutput`：由 `aggregator` 节点统一读取前面各分支结果后生成最终汇总文本
+
+**运行结果示例**
+
+```txt
+START
+  -> callLlm1 ----\
+  -> callLlm2 -----+-> aggregator -> END
+  -> callLlm3 ----/
+
+branches: ["callLlm1", "callLlm2", "callLlm3", "aggregator"]
+llmCalls: 3
+```
+
 ---
 
 ## LangChain API 总结（按文件）
@@ -328,6 +412,25 @@ node dist/01_basic_call/index.mjs
 - `model.bindTools()`
 - `ToolMessage`
 
+### StateGraph 状态图（`src/13_stategraph/index.ts`）
+- `StateGraph`
+- `Annotation.Root`
+- `Annotation<string>`
+- `addConditionalEdges()`
+- `START`
+- `END`
+- `default: () => []`
+- `reducer: (a, b) => ...`
+
+### Parallel StateGraph（`src/14_parallel_stategraph/index.ts`）
+- `StateGraph`
+- `START`
+- `END`
+- `aggregator`
+- `Fan-out / Fan-in`
+- `default: () => []`
+- `reducer: (a, b) => ...`
+
 ### 容易混淆：这些不是 LangChain API
 - `async/await`
 - `for await...of`
@@ -341,9 +444,9 @@ node dist/01_basic_call/index.mjs
 ## 学习路径
 
 ```
-01 基础调用  →  02 Prompt 模板  →  03 结构化输出  →  04 RAG  →  05 Ollama  →  06 工具调用  →  07 消息系统  →  08 ReAct  →  09 createAgent  →  10 结构化响应 Agent  →  11 流式结构化响应  →  12 LangGraph Entrypoint
-     ↓                ↓                  ↓               ↓            ↓             ↓               ↓               ↓             ↓                    ↓                         ↓                        ↓
- 理解模型        LCEL 管道语法      Schema 约束输出   检索增强生成   本地模型封装   Tool Calling     消息抽象        经典 Agent     v1 Agent             最终结构化结果               流式状态消费             Functional API 工作流
+01 基础调用  →  02 Prompt 模板  →  03 结构化输出  →  04 RAG  →  05 Ollama  →  06 工具调用  →  07 消息系统  →  08 ReAct  →  09 createAgent  →  10 结构化响应 Agent  →  11 流式结构化响应  →  12 LangGraph Entrypoint  →  13 StateGraph 状态图  →  14 Parallel StateGraph
+     ↓                ↓                  ↓               ↓            ↓             ↓               ↓               ↓             ↓                    ↓                         ↓                        ↓                             ↓                           ↓
+ 理解模型        LCEL 管道语法      Schema 约束输出   检索增强生成   本地模型封装   Tool Calling     消息抽象        经典 Agent     v1 Agent             最终结构化结果               流式状态消费             Functional API 工作流           状态驱动工作流              并行图编排
 ```
 
 ## 进阶方向
