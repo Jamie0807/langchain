@@ -11,6 +11,7 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 
 const csvPath = path.resolve(process.cwd(), "rag-document/student.csv");
 
+// 文本分割器配置参数
 const splitter = new RecursiveCharacterTextSplitter({
   chunkSize: 40,
   chunkOverlap: 10,

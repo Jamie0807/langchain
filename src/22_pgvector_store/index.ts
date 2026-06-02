@@ -99,7 +99,6 @@ function printSearchResults(
     console.log(doc.pageContent);
     console.log("metadata:");
     console.log(doc.metadata);
-    console.log("");
   });
 }
 
@@ -107,7 +106,6 @@ function printSetupHint(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   console.error("PGVectorStore 初始化失败。");
   console.error(message);
-  console.error("");
   console.error("请确认以下条件：");
   console.error("1. PostgreSQL 服务已启动");
   console.error("2. 目标数据库已创建，例如 embedding");
@@ -127,7 +125,6 @@ async function main() {
   console.log(`PG Port: ${postgresConnectionOptions.port}`);
   console.log(`PG Database: ${postgresConnectionOptions.database}`);
   console.log(`PG Table: ${tableName}`);
-  console.log("");
 
   let vectorStore: PGVectorStore;
   try {

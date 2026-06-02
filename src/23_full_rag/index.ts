@@ -20,34 +20,41 @@ import {
 const csvPath = path.resolve(process.cwd(), "rag-document/student.csv");
 const embeddingModel = "mxbai-embed-large:335m";
 
+// 文本分割器配置参数
 const splitter = new RecursiveCharacterTextSplitter({
   chunkSize: 200,
   chunkOverlap: 20,
 });
 
+// 向量化模型配置参数
 const embeddings = new OllamaEmbeddings({
   baseUrl: getOllamaBaseUrl(),
   model: embeddingModel,
 });
 
+// Chat 模型配置参数
 const llm = createOllamaChatModel({
   temperature: 0,
   think: false,
 });
 
+// 加载文档
 async function loadDocuments() {
   const loader = new CSVLoader(csvPath);
   return loader.load();
 }
 
+// 文本分割
 async function splitDocuments(docs: Document[]) {
   return splitter.splitDocuments(docs);
 }
 
+// 向量化
 async function buildVectorStore(chunks: Document[]) {
   return MemoryVectorStore.fromDocuments(chunks, embeddings);
 }
 
+// 格式化上下文
 function formatContext(docs: Document[]) {
   return docs
     .map((doc, index) => {
@@ -63,6 +70,7 @@ function formatContext(docs: Document[]) {
     .join("\n\n");
 }
 
+// 格式化来源
 function formatSources(docs: Document[]) {
   return docs
     .map((doc, index) => {
@@ -73,6 +81,7 @@ function formatSources(docs: Document[]) {
     .join("\n");
 }
 
+// 生成 bigrams
 function toBigrams(value: string) {
   const normalized = value.replace(/[^\p{L}\p{N}]+/gu, "");
   const grams: string[] = [];
@@ -84,6 +93,7 @@ function toBigrams(value: string) {
   return grams;
 }
 
+// 计算 lexical score
 function lexicalScore(question: string, doc: Document) {
   const questionGrams = new Set(toBigrams(question));
   const docGrams = toBigrams(doc.pageContent);
@@ -98,6 +108,7 @@ function lexicalScore(question: string, doc: Document) {
   return score;
 }
 
+// 回答问题
 async function answerQuestion(
   vectorStore: MemoryVectorStore,
   question: string
@@ -153,7 +164,6 @@ async function main() {
   console.log(`分块数量: ${chunks.length}`);
   console.log(`Embedding 模型: ${embeddingModel}`);
   console.log(`Chat 模型: ${getOllamaModelName()}`);
-  console.log("");
 
   const questions = [
     "谁正在学习 RAG？",
@@ -165,19 +175,15 @@ async function main() {
 
     console.log(`=== 问题 ===`);
     console.log(question);
-    console.log("");
 
     console.log("=== 检索到的上下文 ===");
     console.log(formatContext(retrievedDocs));
-    console.log("");
 
     console.log("=== 最终答案 ===");
     console.log(answer);
-    console.log("");
 
     console.log("=== 来源 ===");
     console.log(formatSources(retrievedDocs));
-    console.log("");
     console.log("-".repeat(60));
   }
 }

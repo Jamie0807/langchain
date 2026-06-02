@@ -25,6 +25,7 @@ const embeddings = new OllamaEmbeddings({
   model: embeddingModel,
 });
 
+// 加载文档并切分
 async function loadChunks() {
   const loader = new CSVLoader(csvPath);
   const docs = await loader.load();
@@ -32,6 +33,7 @@ async function loadChunks() {
   return chunks;
 }
 
+// 构建内存向量存储
 async function buildMemoryStore(chunks: Document[]) {
   return MemoryVectorStore.fromDocuments(chunks, embeddings);
 }
@@ -49,7 +51,6 @@ function printSearchResults(
     console.log(doc.pageContent);
     console.log("metadata:");
     console.log(doc.metadata);
-    console.log("");
   });
 }
 
@@ -62,9 +63,10 @@ async function main() {
   console.log(`分块数量: ${chunks.length}`);
   console.log(`Embedding 模型: ${embeddingModel}`);
   console.log(`内存向量数量: ${vectorStore.memoryVectors.length}`);
-  console.log("");
 
   const textQuery = "会 LangChain 的学生";
+  
+  // 文本相似度检索
   const textResults = await vectorStore.similaritySearchWithScore(textQuery, 2);
   printSearchResults(`文本相似度检索: ${textQuery}`, textResults);
 
