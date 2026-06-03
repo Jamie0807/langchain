@@ -12,6 +12,10 @@
     "stategraph",
     "pgvector",
     "mxbai",
-    "rerank"
+    "rerank",
+    "modelcontextprotocol",
+    "sdk",
+    "streamable",
+    "onsessioninitialized"
   ]
 }

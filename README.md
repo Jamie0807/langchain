@@ -1,11 +1,12 @@
 # LangChain.js / LangGraph.js
 
-从零开始学习 `LangChain.js` 的本地 Ollama 示例，内容既覆盖 `LangChain` 基础能力，也覆盖基于它继续向上搭建的 `Agent / LangGraph` 与 `RAG` 实践。
+这是一个基于本地 `Ollama` 的 `LangChain.js` 学习仓库，内容覆盖 `LangChain` 基础能力，以及基于它继续向上搭建的 `Agent / LangGraph`、`RAG` 与 `MCP` 服务实践。
 
-本仓库包含两条学习路线：
+本仓库包含三条学习路线：
 
 - `Agent / LangGraph` 主线：覆盖基础调用、结构化输出、工具调用、Agent、LangGraph 状态图，以及并行、子图与中断恢复工作流
 - `RAG` 专项主线：覆盖从 `04_rag_qa` 的最小闭环入门，到 `18-23` 的 CSV 加载、文本切分、Embedding、向量检索、`PGVector` 持久化和完整 RAG 问答落地
+- `MCP` 服务主线：从 `24_mcp_stdio` 开始，先理解本地 `stdio` 服务，再过渡到 `26_mcp_weather_http` 的远程 `HTTP` 服务，最后用 `25_mcp_client` 把多个 MCP 服务接入 Agent
 
 ## 环境准备
 
@@ -76,6 +77,9 @@ npm run 20:embedding
 npm run 21:memory-store
 npm run 22:pgvector-store
 npm run 23:full-rag
+npm run 24:mcp-stdio
+npm run 25:mcp-client
+npm run 26:mcp-weather-http
 ```
 
 **编译产物**
@@ -656,6 +660,101 @@ CSVLoader
 
 ---
 
+### 24 - MCP Stdio Math Server `24_mcp_stdio/index.ts`
+**学习目标**：使用 MCP SDK 基于 `stdio` 传输实现一个最小可运行的本地工具服务
+
+| 知识点 | 说明 |
+|--------|------|
+| `Server` | 创建底层 MCP Server，并声明服务信息与 capabilities |
+| `StdioServerTransport` | 通过当前进程的 stdin / stdout 与 MCP Client 通信 |
+| `ListToolsRequestSchema` | 响应客户端的工具列表请求 |
+| `CallToolRequestSchema` | 响应客户端的工具调用请求 |
+| `setRequestHandler()` | 为指定 MCP 请求注册处理器 |
+| `tools/list` | 告诉客户端当前有哪些工具可用 |
+| `tools/call` | 真正执行工具逻辑并返回结果 |
+
+**这一节做了什么**
+
+- 暴露两个最小工具：`add` 和 `multiply`
+- 让客户端先通过 `tools/list` 发现工具，再通过 `tools/call` 调用工具
+- 使用 `stdio` 作为本地进程通信方式，适合 MCP 入门和桌面端集成
+
+**为什么日志写到 `stderr`**
+
+- `stdio` 传输里，`stdout` 要留给 MCP 协议消息
+- 如果把调试日志写到 `stdout`，很容易把协议流打乱
+- 所以示例里把启动日志写到了 `stderr`
+
+**这一步和前面示例的关系**
+
+- 前面的 `06_tools` 是“让模型在 LangChain 应用内部调用工具”
+- `24` 是“把工具能力封装成标准 MCP 服务，交给外部 MCP Client 来发现和调用”
+- 可以把它理解成：从应用内 Tool Calling，走向跨应用可复用的工具服务
+
+---
+
+### 25 - MCP Client `25_mcp_client/index.ts`
+**学习目标**：使用 `MultiServerMCPClient` 连接 MCP Server，加载工具并交给 LangChain Agent 调用
+
+| 知识点 | 说明 |
+|--------|------|
+| `MultiServerMCPClient` | 管理一个或多个 MCP Server 连接，并把工具转成 LangChain 可用工具 |
+| `transport: "stdio"` | 通过本地子进程方式启动并连接 MCP Server |
+| `initializeConnections()` | 预先建立所有 MCP 连接 |
+| `getTools()` | 从 MCP Server 拉取工具并转成 LangChain tools |
+| `createAgent()` | 用 LangChain Agent 消费 MCP 工具 |
+| `client.close()` | 关闭连接，回收子进程与资源 |
+
+**这一节做了什么**
+
+- 用 `MultiServerMCPClient` 启动并连接 `24_mcp_stdio`
+- 自动拉起 `26_mcp_weather_http`
+- 同时连接 `math` 和 `weather` 两个 MCP 服务
+- 从 MCP Server 读取 `add`、`multiply`、`fetch-weather` 三个工具
+- 把这些工具直接交给 LangChain Agent
+- 让 Agent 分别通过 MCP 工具完成数学计算和天气查询
+
+**和 `24` 的关系**
+
+- `24` 解决“如何暴露工具”
+- `25` 解决“如何消费多个工具服务”
+- 连同 `26` 一起，就是一个完整的多服务 MCP 闭环：`Multiple Servers -> Client -> Agent -> Tool Call`
+
+---
+
+### 26 - MCP Weather HTTP Server `26_mcp_weather_http/index.ts`
+**学习目标**：使用高阶 `McpServer` 实现同时兼容 `Streamable HTTP` 与 `HTTP + SSE` 的 MCP 天气服务
+
+| 知识点 | 说明 |
+|--------|------|
+| `McpServer` | 使用高阶 API 创建 MCP 服务 |
+| `registerTool()` | 以配置对象方式注册工具、输入 schema 和输出 schema |
+| `StreamableHTTPServerTransport` | 通过 HTTP 暴露 MCP 服务能力 |
+| `SSEServerTransport` | 提供兼容旧版 MCP 客户端的 SSE 通道 |
+| `isInitializeRequest()` | 判断当前请求是否是新的 MCP 初始化请求 |
+| `randomUUID()` | 为每个新会话生成唯一 session id |
+| `structuredContent` | 返回结构化工具结果，便于客户端后续处理 |
+| `transport: "http"` | 让 `MultiServerMCPClient` 以 HTTP 方式连接远程 MCP 服务 |
+| `fetch-weather` | 当前天气服务暴露的工具名 |
+| `/sse` + `/messages` | 兼容旧版 `HTTP + SSE` 协议形态 |
+| `/health` | 给本地客户端做服务就绪检测 |
+
+**这一节做了什么**
+
+- 在 `http://127.0.0.1:8000/mcp` 暴露天气 MCP 服务
+- 用 `registerTool()` 注册 `fetch-weather(city)` 工具
+- 为新会话创建并缓存 `StreamableHTTPServerTransport`
+- 额外暴露 `/sse` 与 `/messages`，兼容旧版 HTTP + SSE 客户端
+- 返回文本结果和 `structuredContent`，更贴近官方高阶写法
+
+**和 `25` 的关系**
+
+- `26` 负责提供天气工具
+- `25` 负责连接天气工具并交给 Agent 使用
+- 这就对应了你截图里的 `math(stdio) + weather(http)` 双服务结构
+
+---
+
 ## LangChain API 总结（按文件）
 
 ### 基础调用（`src/01_basic_call/index.ts`）
@@ -836,6 +935,32 @@ CSVLoader
 - `llm.invoke()`
 - `Document.metadata`
 
+### MCP Stdio Server（`src/24_mcp_stdio/index.ts`）
+- `Server`
+- `StdioServerTransport`
+- `ListToolsRequestSchema`
+- `CallToolRequestSchema`
+- `setRequestHandler()`
+- `server.connect()`
+
+### MCP Client（`src/25_mcp_client/index.ts`）
+- `MultiServerMCPClient`
+- `initializeConnections()`
+- `getTools()`
+- `createAgent()`
+- `client.close()`
+
+### MCP Weather HTTP Server（`src/26_mcp_weather_http/index.ts`）
+- `McpServer`
+- `registerTool()`
+- `StreamableHTTPServerTransport`
+- `SSEServerTransport`
+- `isInitializeRequest()`
+- `randomUUID()`
+- `transport.handleRequest()`
+- `transport.handlePostMessage()`
+- `structuredContent`
+
 ### 容易混淆：这些不是 LangChain API
 - `async/await`
 - `for await...of`
@@ -887,10 +1012,26 @@ CSVLoader
 - `04` 先帮助你快速理解 RAG 最小闭环：切分、向量化、检索、回答
 - `18-23` 再把这条链路拆开，补齐数据加载、向量持久化和完整问答落地
 
+**主线三：24-26 MCP 服务**
+
+```txt
+24 MCP Stdio Math Server
+  -> 26 MCP Weather HTTP Server
+  -> 25 MCP Client
+  -> 后续可继续扩展：Resources / Prompts / 更多远程服务 / LangChain 集成
+```
+
+- 编号顺序是 `24 -> 25 -> 26`，但从理解难度看，更推荐按 `24 -> 26 -> 25` 学：先看两种服务端形态，再看客户端如何同时连接它们
+- `24` 先从最小可运行 MCP Server 入手，理解服务信息、工具声明、工具调用和 stdio 传输
+- `26` 补齐远程 HTTP 服务形态，对应截图里的天气服务
+- `25` 再从客户端视角理解：如何连接多个 MCP Server、读取工具、交给 Agent 使用
+- 这一条线更适合把“本地工具能力”升级成“标准协议服务能力”
+
 **怎么学更顺**
 
 - 想先搭整体框架：按主线一学习，再专项补主线二
 - 想专攻 RAG：先看 `04`，再顺着 `18 -> 23` 走完整条 RAG 专项线
+- 想学 MCP：先看 `24` 跑通本地服务，再看 `26` 理解 HTTP 服务，最后用 `25` 把双服务客户端完整串起来
 
 
 ---
